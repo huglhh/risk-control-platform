@@ -1,0 +1,14 @@
+{
+  "name": "risk-control-platform",
+  "version": "1.0.0",
+  "description": "项目安全生产风险管控平台 - 后端API服务",
+  "type": "module",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "dependencies": {
+    "cors": "^2.8.6",
+    "express": "^4.22.2"
+  }
+}

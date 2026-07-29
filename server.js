@@ -15,8 +15,9 @@ app.use(cors());
 app.use(express.json({ limit: '50mb' }));
 app.use(express.static(path.join(__dirname, 'public')));
 
-// 数据文件路径
-const DATA_FILE = path.join(__dirname, 'data.json');
+// 数据文件路径（支持持久化卷：设置 DATA_DIR 环境变量指向挂载目录）
+const DATA_DIR = process.env.DATA_DIR || __dirname;
+const DATA_FILE = path.join(DATA_DIR, 'data.json');
 
 // 数据字段定义（与前端 Excel 模板完全一致）
 const DATA_FIELDS = [

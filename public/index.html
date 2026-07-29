@@ -1,0 +1,1396 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>项目安全生产风险管控平台</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/echarts@5.4.3/dist/echarts.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/echarts/map/js/china.js"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            primary: '#00927E',
+            primaryLight: '#e6f7f4',
+            primaryDark: '#007868',
+          },
+        }
+      }
+    }
+  </script>
+  <style>
+    .risk-red { background-color: #ef4444; color: white; }
+    .risk-orange { background-color: #f97316; color: white; }
+    .risk-yellow { background-color: #eab308; color: black; }
+    .risk-blue { background-color: #3b82f6; color: white; }
+    .page { display: none; }
+    .page.active { display: block; }
+
+    body {
+      background: linear-gradient(180deg, #e6f7f4 0%, #f4faf9 40%, #f8fbfb 100%);
+    }
+    header {
+      background: linear-gradient(135deg, #00927E 0%, #007868 60%, #005a4e 100%);
+      box-shadow: 0 2px 16px rgba(0,146,126,0.3);
+    }
+    aside {
+      background: linear-gradient(180deg, #d8f2ee 0%, #ecf8f6 50%, #f4faf9 100%);
+      border-right: 2px solid #c3e8e1;
+    }
+    .sidebar-item {
+      border-left: 3px solid transparent;
+      transition: all 0.2s ease;
+      color: #005a4e;
+      font-weight: 500;
+    }
+    .sidebar-item:hover {
+      background-color: #c3e8e1;
+      border-left-color: #00927E;
+      transform: translateX(2px);
+    }
+    .sidebar-active {
+      background: linear-gradient(90deg, #00927E 0%, #007868 100%) !important;
+      color: white !important;
+      border-left-color: #00b89e !important;
+      box-shadow: 0 2px 8px rgba(0,146,126,0.35);
+    }
+    .card-bg {
+      background-color: #ffffff;
+      border: 1px solid #d8f0eb;
+      border-radius: 12px;
+      box-shadow: 0 2px 10px rgba(0,146,126,0.07);
+    }
+    .btn-primary {
+      background: linear-gradient(135deg, #00927E 0%, #007868 100%);
+      box-shadow: 0 2px 6px rgba(0,146,126,0.3);
+      transition: all 0.2s;
+    }
+    .btn-primary:hover {
+      background: linear-gradient(135deg, #007868 0%, #005a4e 100%);
+      box-shadow: 0 4px 12px rgba(0,146,126,0.4);
+      transform: translateY(-1px);
+    }
+    table thead th {
+      background: linear-gradient(180deg, #d8f2ee 0%, #c3e8e1 100%);
+      color: #005a4e;
+      font-weight: 600;
+    }
+    .stat-card {
+      transition: all 0.2s ease;
+      box-shadow: 0 3px 10px rgba(0,0,0,0.1);
+      border-radius: 10px;
+      position: relative;
+      overflow: hidden;
+    }
+    .stat-card::before {
+      content: '';
+      position: absolute;
+      top: 0; left: 0; right: 0;
+      height: 3px;
+      background: rgba(255,255,255,0.35);
+    }
+    .stat-card:hover {
+      transform: translateY(-3px);
+      box-shadow: 0 8px 22px rgba(0,0,0,0.15);
+    }
+    .top5-panel {
+      border: 1px solid #d8f0eb;
+      border-top: 3px solid #00927E;
+      border-radius: 10px;
+      background: linear-gradient(180deg, #ffffff 0%, #f8fcfb 100%);
+      box-shadow: 0 1px 6px rgba(0,146,126,0.06);
+    }
+    .top5-row {
+      transition: background 0.15s;
+      border-radius: 6px;
+      padding: 6px 8px;
+      margin: 2px 0;
+    }
+    .top5-row:hover {
+      background-color: #e6f7f4;
+    }
+    #chinaMap {
+      border-radius: 10px;
+      background: linear-gradient(180deg, #f0faf9 0%, #ffffff 100%);
+    }
+    .period-badge {
+      background: linear-gradient(135deg, #00927E 0%, #007868 100%);
+      box-shadow: 0 1px 4px rgba(0,146,126,0.3);
+    }
+    .login-box {
+      border: 1px solid #d8f0eb;
+      box-shadow: 0 8px 32px rgba(0,146,126,0.2);
+    }
+    input:focus, select:focus {
+      border-color: #00927E !important;
+      box-shadow: 0 0 0 2px rgba(0,146,126,0.15) !important;
+    }
+    /* 表格滚动容器 sticky header */
+    .overflow-x-auto thead th {
+      background: linear-gradient(180deg, #d8f2ee 0%, #c3e8e1 100%) !important;
+      z-index: 10;
+    }
+    .overflow-x-auto thead th.sticky {
+      position: sticky;
+      top: 0;
+    }
+    /* 表格行hover */
+    .overflow-x-auto tbody tr:hover {
+      background-color: #f0faf9;
+    }
+    /* 表单弹窗优化 */
+    .form-grid label {
+      font-size: 0.8rem;
+      color: #666;
+      display: block;
+      margin-bottom: 2px;
+    }
+    /* 统计卡片点击反馈 */
+    .stat-card:active {
+      transform: translateY(-1px) scale(0.98);
+    }
+  </style>
+</head>
+<body class="h-screen flex flex-col overflow-hidden">
+<!-- 登录弹窗 -->
+<div id="loginModal" class="fixed inset-0 bg-black/60 flex items-center justify-center z-50">
+  <div class="bg-white p-8 rounded-xl w-96 shadow-xl login-box">
+    <div class="text-center mb-5">
+      <div class="inline-block w-14 h-14 rounded-full bg-gradient-to-br from-primary to-primaryDark flex items-center justify-center mb-2">
+        <svg class="w-7 h-7 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"/></svg>
+      </div>
+      <h2 class="text-xl font-bold text-primary">系统登录</h2>
+    </div>
+    <div class="mb-5">
+      <label class="block text-sm mb-1 text-gray-600">用户名</label>
+      <input id="username" class="w-full border p-2 rounded focus:border-primary focus:ring-1 focus:ring-primary" placeholder="请输入用户名">
+    </div>
+    <button onclick="login()" class="w-full btn-primary text-white py-2.5 rounded transition">进入系统</button>
+  </div>
+</div>
+
+<!-- 顶部导航 -->
+<header class="text-white px-6 py-3 flex justify-between items-center">
+  <div class="flex items-center gap-3">
+    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"/></svg>
+    <h1 class="text-lg font-semibold tracking-wide">安全生产风险等级管控平台</h1>
+  </div>
+  <div id="userInfo" class="text-sm"></div>
+</header>
+
+<div class="flex flex-1 overflow-hidden">
+  <!-- 侧边导航 -->
+  <aside class="w-56 p-3 overflow-y-auto">
+    <div class="sidebar-item p-3 rounded cursor-pointer mb-2 flex items-center gap-2" data-page="map" onclick="switchPage('map')">
+      <svg class="w-4 h-4 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 20l-5.447-2.724A1 1 0 013 16.382V5.618a1 1 0 011.447-.894L9 7m0 13l6-3m-6 3V7m6 10l4.553 2.276A1 1 0 0021 18.382V7.618a1 1 0 00-.553-.894L15 4m0 13V4m0 0L9 7"/></svg>
+      <span>地图风险看板</span>
+    </div>
+    <div class="sidebar-item p-3 rounded cursor-pointer mb-2 flex items-center gap-2" data-page="detail" onclick="switchPage('detail')">
+      <svg class="w-4 h-4 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
+      <span>项目明细查询</span>
+    </div>
+    <div class="sidebar-item p-3 rounded cursor-pointer mb-2 flex items-center gap-2" data-page="trend" onclick="switchPage('trend')">
+      <svg class="w-4 h-4 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 12l3-3 3 3 4-4M8 21l4-4 4 4M3 4h18M4 4h16v12a1 1 0 01-1 1H5a1 1 0 01-1-1V4z"/></svg>
+      <span>趋势AI分析</span>
+    </div>
+    <div class="sidebar-item p-3 rounded cursor-pointer mb-2 flex items-center gap-2" data-page="admin" onclick="switchPage('admin')">
+      <svg class="w-4 h-4 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
+      <span>后台数据管理</span>
+    </div>
+  </aside>
+
+  <!-- 主内容区 -->
+  <main class="flex-1 p-4 overflow-y-auto">
+    <!-- 页面1：地图看板 -->
+    <div id="page-map" class="page active">
+      <div class="card-bg p-5 mb-4">
+        <div class="flex justify-between items-center mb-4">
+          <div class="flex items-center gap-2">
+            <span class="inline-block w-1 h-5 bg-primary rounded"></span>
+            <div>
+              <h2 class="text-lg font-bold text-primary">全国区域风险地图可视化</h2>
+              <p class="text-xs text-gray-400 mt-0.5">标注特殊站点：陕西(GSC)、江苏(原厂授权)、北京(数据中心运维)、宁夏(数据中心建设)、广东深圳(云计算运营)</p>
+            </div>
+          </div>
+          <span id="currentPeriodBadge" class="period-badge text-white px-4 py-1.5 rounded-full text-xs font-medium">展示月份：-</span>
+        </div>
+
+        <!-- 风险等级统计卡片 -->
+        <div class="grid grid-cols-4 gap-3 mb-4">
+          <div class="stat-card p-3 text-white cursor-pointer" style="background:linear-gradient(135deg,#ef4444,#dc2626)" onclick="statCardClick('红色')">
+            <div class="text-sm opacity-90">红色风险</div>
+            <div class="text-xl font-bold mt-1">
+              <span id="stat-red-area" class="hover:underline">0</span> 区域
+              <span class="mx-1 opacity-50">|</span>
+              <span id="stat-red-proj" class="hover:underline">0</span> 项目
+            </div>
+            <div class="text-xs opacity-70 mt-1">点击查看明细 →</div>
+          </div>
+          <div class="stat-card p-3 text-white cursor-pointer" style="background:linear-gradient(135deg,#f97316,#ea580c)" onclick="statCardClick('橙色')">
+            <div class="text-sm opacity-90">橙色风险</div>
+            <div class="text-xl font-bold mt-1">
+              <span id="stat-orange-area" class="hover:underline">0</span> 区域
+              <span class="mx-1 opacity-50">|</span>
+              <span id="stat-orange-proj" class="hover:underline">0</span> 项目
+            </div>
+            <div class="text-xs opacity-70 mt-1">点击查看明细 →</div>
+          </div>
+          <div class="stat-card p-3 cursor-pointer" style="background:linear-gradient(135deg,#eab308,#ca8a04);color:#1a1a1a" onclick="statCardClick('黄色')">
+            <div class="text-sm opacity-80">黄色风险</div>
+            <div class="text-xl font-bold mt-1">
+              <span id="stat-yellow-area" class="hover:underline">0</span> 区域
+              <span class="mx-1 opacity-50">|</span>
+              <span id="stat-yellow-proj" class="hover:underline">0</span> 项目
+            </div>
+            <div class="text-xs opacity-60 mt-1">点击查看明细 →</div>
+          </div>
+          <div class="stat-card p-3 text-white cursor-pointer" style="background:linear-gradient(135deg,#3b82f6,#2563eb)" onclick="statCardClick('蓝色')">
+            <div class="text-sm opacity-90">蓝色风险</div>
+            <div class="text-xl font-bold mt-1">
+              <span id="stat-blue-area" class="hover:underline">0</span> 区域
+              <span class="mx-1 opacity-50">|</span>
+              <span id="stat-blue-proj" class="hover:underline">0</span> 项目
+            </div>
+            <div class="text-xs opacity-70 mt-1">点击查看明细 →</div>
+          </div>
+        </div>
+
+        <!-- 地图 + 右侧TOP5 -->
+        <div class="flex gap-4" style="height:580px">
+          <div class="flex-1 min-w-0">
+            <div id="chinaMap" style="width:100%;height:100%;"></div>
+          </div>
+          <div class="w-80 flex flex-col gap-3 flex-shrink-0">
+            <div class="top5-panel p-3 flex-1 overflow-y-auto">
+              <h3 class="font-bold text-primary mb-2 flex items-center gap-2">
+                <span class="inline-block w-1 h-4 bg-primary rounded"></span>
+                风险区域 TOP5
+              </h3>
+              <div id="topAreaBox"></div>
+            </div>
+            <div class="top5-panel p-3 flex-1 overflow-y-auto">
+              <h3 class="font-bold text-primary mb-2 flex items-center gap-2">
+                <span class="inline-block w-1 h-4 bg-primary rounded"></span>
+                风险项目 TOP5
+              </h3>
+              <div id="topProjectBox"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 页面2：项目明细 -->
+    <div id="page-detail" class="page">
+      <div class="card-bg p-5 mb-4">
+        <h2 class="text-lg font-bold text-primary mb-3 flex items-center gap-2">
+          <span class="inline-block w-1 h-5 bg-primary rounded"></span>
+          项目明细查询
+        </h2>
+        <div class="flex gap-4 mb-4 items-end flex-wrap">
+          <div class="flex flex-col">
+            <label class="text-sm text-gray-500 mb-1">月份筛选</label>
+            <select id="filterMonth" class="border p-2 rounded focus:border-primary focus:ring-1 focus:ring-primary min-w-[140px]">
+              <option value="">全部月份</option>
+            </select>
+          </div>
+          <div class="flex flex-col">
+            <label class="text-sm text-gray-500 mb-1">区域筛选</label>
+            <select id="filterArea" class="border p-2 rounded focus:border-primary focus:ring-1 focus:ring-primary min-w-[140px]">
+              <option value="">全部区域</option>
+            </select>
+          </div>
+          <div class="flex flex-col">
+            <label class="text-sm text-gray-500 mb-1">风险等级</label>
+            <select id="filterLevel" class="border p-2 rounded focus:border-primary focus:ring-1 focus:ring-primary min-w-[120px]">
+              <option value="">全部等级</option>
+              <option value="红色">红色</option>
+              <option value="橙色">橙色</option>
+              <option value="黄色">黄色</option>
+              <option value="蓝色">蓝色</option>
+            </select>
+          </div>
+          <button onclick="renderDetailTable()" class="btn-primary text-white px-5 py-2 rounded transition">查询</button>
+        </div>
+        <div class="overflow-x-auto rounded border border-gray-200">
+          <table class="w-full border-collapse text-sm whitespace-nowrap">
+            <thead>
+              <tr>
+                <th class="border p-2 sticky top-0">周期</th>
+                <th class="border p-2 sticky top-0">维度</th>
+                <th class="border p-2 sticky top-0">项目</th>
+                <th class="border p-2 sticky top-0">区域</th>
+                <th class="border p-2 sticky top-0">SCAR</th>
+                <th class="border p-2 sticky top-0">网络折算</th>
+                <th class="border p-2 sticky top-0">质量折算</th>
+                <th class="border p-2 sticky top-0">隐患折算</th>
+                <th class="border p-2 sticky top-0">事故折算</th>
+                <th class="border p-2 sticky top-0">人员折算</th>
+                <th class="border p-2 sticky top-0">车辆折算</th>
+                <th class="border p-2 sticky top-0">特种作业折算</th>
+                <th class="border p-2 sticky top-0">风险总和</th>
+                <th class="border p-2 sticky top-0">风险等级</th>
+              </tr>
+            </thead>
+            <tbody id="detailTableBody"></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- 页面3：趋势AI分析 -->
+    <div id="page-trend" class="page">
+      <div class="card-bg p-5 mb-4">
+        <h2 class="text-lg font-bold text-primary mb-3 flex items-center gap-2">
+          <span class="inline-block w-1 h-5 bg-primary rounded"></span>
+          趋势AI分析
+        </h2>
+        <div class="flex gap-4 mb-4 items-end flex-wrap">
+          <div class="flex flex-col">
+            <label class="text-sm text-gray-500 mb-1">选择分析区域</label>
+            <select id="trendAreaSel" class="border p-2 rounded focus:border-primary focus:ring-1 focus:ring-primary min-w-[200px]"></select>
+          </div>
+          <button onclick="renderTrend()" class="btn-primary text-white px-5 py-2 rounded transition">生成趋势与AI分析</button>
+        </div>
+        <div class="grid grid-cols-1 gap-4">
+          <div id="trendChart" style="width:100%;height:380px;" class="rounded border border-gray-200"></div>
+          <div id="aiAnalysisBox" class="p-4 rounded border" style="background:#e6f7f4;border-color:#c3e8e1"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 页面4：管理后台 -->
+    <div id="page-admin" class="page">
+      <div class="card-bg p-5 mb-4">
+        <h2 class="text-lg font-bold text-primary mb-3 flex items-center gap-2">
+          <span class="inline-block w-1 h-5 bg-primary rounded"></span>
+          后台数据管理
+        </h2>
+        <div class="flex gap-3 mb-4 flex-wrap items-center">
+          <button onclick="openAddModal()" class="bg-emerald-600 text-white px-4 py-2 rounded hover:bg-emerald-700 transition">单条新增月度数据</button>
+          <button onclick="openImportModal()" class="btn-primary text-white px-4 py-2 rounded transition">Excel批量导入</button>
+          <button onclick="downloadTemplate()" class="bg-gray-500 text-white px-4 py-2 rounded hover:bg-gray-600 transition">下载标准导入模板</button>
+          <button id="batchDeleteBtn" onclick="batchDelete()" class="bg-red-600 text-white px-4 py-2 rounded hover:bg-red-700 transition hidden">批量删除选中</button>
+          <span id="adminRoleHint" class="text-sm text-gray-400 ml-auto"></span>
+        </div>
+        <h3 class="font-bold mb-2 text-primary text-sm">全部数据列表</h3>
+        <div class="overflow-x-auto rounded border border-gray-200">
+          <table class="w-full border-collapse text-sm whitespace-nowrap">
+            <thead>
+              <tr>
+                <th class="border p-2 sticky top-0" id="selectAllTh"><input type="checkbox" id="selectAll" onchange="toggleSelectAll(this)"></th>
+                <th class="border p-2 sticky top-0">周期</th>
+                <th class="border p-2 sticky top-0">维度</th>
+                <th class="border p-2 sticky top-0">项目</th>
+                <th class="border p-2 sticky top-0">区域</th>
+                <th class="border p-2 sticky top-0">SCAR</th>
+                <th class="border p-2 sticky top-0">网络折算</th>
+                <th class="border p-2 sticky top-0">质量折算</th>
+                <th class="border p-2 sticky top-0">隐患折算</th>
+                <th class="border p-2 sticky top-0">事故折算</th>
+                <th class="border p-2 sticky top-0">人员折算</th>
+                <th class="border p-2 sticky top-0">车辆折算</th>
+                <th class="border p-2 sticky top-0">特种作业折算</th>
+                <th class="border p-2 sticky top-0">风险总和</th>
+                <th class="border p-2 sticky top-0">等级</th>
+                <th class="border p-2 sticky top-0">操作</th>
+              </tr>
+            </thead>
+            <tbody id="adminTableBody"></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </main>
+</div>
+
+<!-- 单条新增/编辑弹窗 -->
+<div id="addEditModal" class="fixed inset-0 bg-black/60 hidden items-center justify-center z-40 overflow-y-auto">
+  <div class="bg-white p-6 rounded-xl w-[900px] max-h-[90vh] overflow-y-auto" style="box-shadow:0 8px 32px rgba(0,146,126,0.2)">
+    <h3 id="modalTitle" class="text-lg font-bold mb-4 text-primary">新增月度风险数据</h3>
+    <input type="hidden" id="editId">
+    <div class="grid grid-cols-4 gap-3 text-sm form-grid">
+      <div>
+        <label>统计周期(2026-03)</label>
+        <input id="f_period" class="w-full border p-2 rounded focus:border-primary focus:ring-1 focus:ring-primary" value="0">
+      </div>
+      <div>
+        <label>维度(区域维度/项目维度)</label>
+        <select id="f_dimension" class="w-full border p-2 rounded focus:border-primary focus:ring-1 focus:ring-primary">
+          <option>区域维度</option>
+          <option>项目维度</option>
+        </select>
+      </div>
+      <div>
+        <label>项目名称</label>
+        <input id="f_project" class="w-full border p-2 rounded focus:border-primary focus:ring-1 focus:ring-primary" value="0">
+      </div>
+      <div>
+        <label>所属区域</label>
+        <input id="f_area" class="w-full border p-2 rounded focus:border-primary focus:ring-1 focus:ring-primary" value="0">
+      </div>
+      <div><label>SCAR单</label><input id="f_scar" class="w-full border p-2 rounded focus:border-primary focus:ring-1 focus:ring-primary" value="0"></div>
+      <div><label>质量事件数</label><input id="f_q1" class="w-full border p-2 rounded focus:border-primary focus:ring-1 focus:ring-primary" value="0"></div>
+      <div><label>质量驳回工单1</label><input id="f_q2" class="w-full border p-2 rounded focus:border-primary focus:ring-1 focus:ring-primary" value="0"></div>
+      <div><label>质量驳回工单2</label><input id="f_q3" class="w-full border p-2 rounded focus:border-primary focus:ring-1 focus:ring-primary" value="0"></div>
+      <div><label>超期问题工单</label><input id="f_q4" class="w-full border p-2 rounded focus:border-primary focus:ring-1 focus:ring-primary" value="0"></div>
+      <div><label>网络事故数</label><input id="f_net1" class="w-full border p-2 rounded focus:border-primary focus:ring-1 focus:ring-primary" value="0"></div>
+      <div><label>网络事件数</label><input id="f_net2" class="w-full border p-2 rounded focus:border-primary focus:ring-1 focus:ring-primary" value="0"></div>
+      <div><label>RO单数量</label><input id="f_ro" class="w-full border p-2 rounded focus:border-primary focus:ring-1 focus:ring-primary" value="0"></div>
+      <div><label>RFC数量</label><input id="f_rfc" class="w-full border p-2 rounded focus:border-primary focus:ring-1 focus:ring-primary" value="0"></div>
+      <div><label>重伤/死亡</label><input id="f_ehs1" class="w-full border p-2 rounded focus:border-primary focus:ring-1 focus:ring-primary" value="0"></div>
+      <div><label>轻伤</label><input id="f_ehs2" class="w-full border p-2 rounded focus:border-primary focus:ring-1 focus:ring-primary" value="0"></div>
+      <div><label>违规作业</label><input id="f_ehs3" class="w-full border p-2 rounded focus:border-primary focus:ring-1 focus:ring-primary" value="0"></div>
+      <div><label>重大/较大隐患</label><input id="f_h1" class="w-full border p-2 rounded focus:border-primary focus:ring-1 focus:ring-primary" value="0"></div>
+      <div><label>一般隐患</label><input id="f_h2" class="w-full border p-2 rounded focus:border-primary focus:ring-1 focus:ring-primary" value="0"></div>
+      <div><label>轻微/潜在隐患</label><input id="f_h3" class="w-full border p-2 rounded focus:border-primary focus:ring-1 focus:ring-primary" value="0"></div>
+      <div><label>高危作业数</label><input id="f_highwork" class="w-full border p-2 rounded focus:border-primary focus:ring-1 focus:ring-primary" value="0"></div>
+      <div><label>项目作业人员总数</label><input id="f_p_total" class="w-full border p-2 rounded focus:border-primary focus:ring-1 focus:ring-primary" value="0"></div>
+      <div><label>有效资源人数</label><input id="f_p_valid" class="w-full border p-2 rounded focus:border-primary focus:ring-1 focus:ring-primary" value="0"></div>
+      <div><label>特种作业人员总数</label><input id="f_spec_total" class="w-full border p-2 rounded focus:border-primary focus:ring-1 focus:ring-primary" value="0"></div>
+      <div><label>特种资质有效人数</label><input id="f_spec_valid" class="w-full border p-2 rounded focus:border-primary focus:ring-1 focus:ring-primary" value="0"></div>
+      <div><label>交通安全事件数</label><input id="f_car1" class="w-full border p-2 rounded focus:border-primary focus:ring-1 focus:ring-primary" value="0"></div>
+      <div><label>车辆疲劳驾驶次数</label><input id="f_car2" class="w-full border p-2 rounded focus:border-primary focus:ring-1 focus:ring-primary" value="0"></div>
+      <div><label>车辆超速次数</label><input id="f_car3" class="w-full border p-2 rounded focus:border-primary focus:ring-1 focus:ring-primary" value="0"></div>
+      <div><label>车辆出勤次数</label><input id="f_car_work" class="w-full border p-2 rounded focus:border-primary focus:ring-1 focus:ring-primary" value="0"></div>
+    </div>
+    <div class="flex justify-end gap-3 mt-4">
+      <button onclick="closeAddModal()" class="px-4 py-2 border rounded hover:bg-gray-100 transition">取消</button>
+      <button onclick="saveRowData()" class="btn-primary text-white px-4 py-2 rounded transition">保存并自动计算</button>
+    </div>
+  </div>
+</div>
+
+<!-- Excel导入弹窗 -->
+<div id="importModal" class="fixed inset-0 bg-black/60 hidden items-center justify-center z-40">
+  <div class="bg-white p-6 rounded-xl w-1/2" style="box-shadow:0 8px 32px rgba(0,146,126,0.2)">
+    <h3 class="text-lg font-bold mb-4 text-primary">Excel批量导入数据</h3>
+    <input type="file" id="excelFileInput" accept=".xlsx" class="mb-4">
+    <div id="importResult" class="mb-4 text-sm"></div>
+    <div class="flex justify-end gap-3">
+      <button onclick="closeImportModal()" class="px-4 py-2 border rounded hover:bg-gray-100 transition">关闭</button>
+      <button onclick="parseExcel()" class="btn-primary text-white px-4 py-2 rounded transition">解析并导入</button>
+    </div>
+  </div>
+</div>
+
+<script>
+// 全局变量
+let currentUserRole = 'user';
+let currentUsername = '';
+let allData = [];
+let chinaChart = null;
+let trendChart = null;
+let mapClickProvince = null; // 地图点击省份，用于跳转明细查询
+let statClickLevel = null; // 统计卡片点击的风险等级，用于跳转明细查询
+
+// 服务部名称 → 省份 映射（用于地图展示）
+const deptToProvince = {
+  "GSC": "陕西",
+  "原厂授权服务": "江苏",
+  "原厂授权": "江苏",
+  "数据中心运维服务部": "北京",
+  "数据中心运维": "北京",
+  "数据中心建设服务部": "宁夏",
+  "数据中心建设": "宁夏",
+  "云计算运营服务部": "广东",
+  "云计算运营": "广东",
+  "深圳": "广东"
+};
+
+// 特殊站点：省份 → 服务部名称（用于地图标注）
+const specialAreas = {
+  "陕西": "GSC",
+  "江苏": "原厂授权服务",
+  "北京": "数据中心运维服务部",
+  "宁夏": "数据中心建设服务部",
+  "广东": "云计算运营服务部(深圳)"
+};
+
+// 特殊区域：业务量少，项目等级直接按区域等级阈值判定
+const specialProjLevelAreas = [
+  "原厂授权服务", "原厂授权",
+  "数据中心运维服务部", "数据中心运维",
+  "数据中心建设服务部", "数据中心建设",
+  "云计算运营服务部", "云计算运营",
+  "重庆"
+];
+
+const levelColors = {
+  "红色": "#ef4444",
+  "橙色": "#f97316",
+  "黄色": "#eab308",
+  "蓝色": "#3b82f6"
+};
+
+// 将区域/服务部名称标准化为省份名
+function normalizeAreaName(name) {
+  if(!name) return name;
+  return deptToProvince[name] || name;
+}
+
+// 获取最新月份
+function getLatestPeriod() {
+  if(allData.length === 0) return null;
+  const periods = [...new Set(allData.map(d=>d.f_period))].filter(p=>p).sort();
+  return periods.length > 0 ? periods[periods.length - 1] : null;
+}
+
+// ==================== 登录 ====================
+async function login() {
+  const username = document.getElementById('username').value.trim();
+  if(!username) return alert("请输入用户名");
+  currentUsername = username;
+  currentUserRole = (username === 'yyj3744') ? 'admin' : 'user';
+  document.getElementById('loginModal').style.display = 'none';
+  document.getElementById('userInfo').innerText = `当前用户：${username} | 权限：${currentUserRole==='admin'?'管理员':'普通用户'}`;
+  await initData();
+  renderAllPage();
+  updateUIByRole();
+}
+
+function updateUIByRole() {
+  const isAdmin = currentUserRole === 'admin';
+  const batchBtn = document.getElementById('batchDeleteBtn');
+  if(batchBtn) batchBtn.classList.toggle('hidden', !isAdmin);
+  const selectAllTh = document.getElementById('selectAllTh');
+  if(selectAllTh) selectAllTh.style.display = isAdmin ? '' : 'none';
+  const hint = document.getElementById('adminRoleHint');
+  if(hint) hint.innerText = isAdmin ? '当前：管理员（可编辑/删除/批量操作）' : '当前：普通用户（仅新增，不可修改/删除）';
+}
+
+// ==================== 页面切换 ====================
+function switchPage(pageId) {
+  document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
+  document.getElementById(`page-${pageId}`).classList.add('active');
+  document.querySelectorAll('.sidebar-item').forEach(item=>{
+    item.classList.remove('sidebar-active');
+    if(item.dataset.page === pageId) item.classList.add('sidebar-active');
+  })
+  if(pageId==='map') { setTimeout(()=>renderMap(), 50); }
+  if(pageId==='detail') renderDetailTable();
+  if(pageId==='trend') { setTimeout(()=>renderTrend(), 50); }
+  if(pageId==='admin') renderAdminTable();
+}
+
+// 统计卡片点击：跳转到项目明细查询，按风险等级+最新月份筛选
+function statCardClick(level) {
+  statClickLevel = level;
+  switchPage('detail');
+}
+
+// ==================== 核心计算公式（100%匹配原Excel表格） ====================
+function calcRow(row) {
+  let netVal = row.f_net1 + row.f_net2 / 29 + row.f_ro / 300 + row.f_rfc / 300;
+  let qVal = row.f_q1 + row.f_q2 / 300 + row.f_q3 / 29 + row.f_q4;
+  let hidVal = row.f_h1 + row.f_h2 / 29 + row.f_h3 / 300;
+  let ehsVal = row.f_ehs1 + row.f_ehs2 + row.f_ehs3 / 300;
+  let pVal = row.f_p_valid / 300 + row.f_spec_total / 29 + (row.f_spec_total - row.f_spec_valid);
+  let carVal = row.f_car1 + row.f_car2 / 29 + row.f_car3 / 29 + row.f_car_work / 300;
+  let specVal = row.f_highwork / 300;
+  let total = row.f_scar + netVal + qVal + hidVal + ehsVal + pVal + carVal + specVal;
+  total = parseFloat(total.toFixed(1));
+  let level = "蓝色";
+  const dim = row.f_dimension;
+  const proj = row.f_project;
+  // 区域维度阈值：≥50红 / ≥40橙 / ≥28黄 / 否则蓝
+  // 项目维度(网络/ICT)：≥15红 / ≥10橙 / ≥8黄 / 否则蓝
+  // 项目维度(其他)：≥20红 / ≥15橙 / ≥10黄 / 否则蓝
+  // 特殊区域或项目为"-"：项目等级=区域等级
+  if(dim === "区域维度"){
+    if(total >= 50) level = "红色";
+    else if(total >= 40) level = "橙色";
+    else if(total >= 28) level = "黄色";
+  }else{
+    if(specialProjLevelAreas.includes(row.f_area) || proj === "-" || proj === ""){
+      if(total >= 50) level = "红色";
+      else if(total >= 40) level = "橙色";
+      else if(total >= 28) level = "黄色";
+    }else if(proj.includes("网络") || proj.includes("ICT")){
+      if(total >= 15) level = "红色";
+      else if(total >= 10) level = "橙色";
+      else if(total >= 8) level = "黄色";
+    }else{
+      if(total >= 20) level = "红色";
+      else if(total >= 15) level = "橙色";
+      else if(total >= 10) level = "黄色";
+    }
+  }
+  return {netVal,qVal,hidVal,ehsVal,pVal,carVal,specVal,total,level};
+}
+
+function getAreaLevel(value) {
+  if(value >= 50) return "红色";
+  if(value >= 40) return "橙色";
+  if(value >= 28) return "黄色";
+  return "蓝色";
+}
+
+function getProjectLevel(value, projectName, areaName) {
+  // 特殊区域或项目为"-"：使用区域等级阈值
+  if((areaName && specialProjLevelAreas.includes(areaName)) || projectName === "-" || projectName === ""){
+    if(value >= 50) return "红色";
+    if(value >= 40) return "橙色";
+    if(value >= 28) return "黄色";
+    return "蓝色";
+  }
+  if(projectName.includes("网络") || projectName.includes("ICT")){
+    if(value >= 15) return "红色";
+    if(value >= 10) return "橙色";
+    if(value >= 8) return "黄色";
+    return "蓝色";
+  }else{
+    if(value >= 20) return "红色";
+    if(value >= 15) return "橙色";
+    if(value >= 10) return "黄色";
+    return "蓝色";
+  }
+}
+
+// API 基础地址
+const API_BASE = '';
+
+// 从服务器加载数据
+async function initData() {
+  try {
+    const resp = await fetch(API_BASE + '/api/data');
+    const result = await resp.json();
+    if(result.success) {
+      allData = result.data || [];
+    }
+  } catch(e) {
+    console.error('加载数据失败:', e);
+    allData = [];
+  }
+}
+
+// 保存到服务器（全量覆盖，仅用于兼容旧调用）
+async function saveLocalData() {
+  // 不再使用 localStorage，数据通过 API 单条操作
+}
+
+// ==================== 页面1：地图看板（最新月份、不取平均） ====================
+function renderMap() {
+  const dom = document.getElementById("chinaMap");
+  if(!dom) return;
+  if(chinaChart) chinaChart.dispose();
+  chinaChart = echarts.init(dom);
+
+  const latestPeriod = getLatestPeriod();
+  const periodBadge = document.getElementById('currentPeriodBadge');
+  if(periodBadge) periodBadge.innerText = latestPeriod ? `展示月份：${latestPeriod}` : '暂无数据';
+
+  if(!latestPeriod) {
+    ['red','orange','yellow','blue'].forEach(c=>{
+      document.getElementById(`stat-${c}-area`).innerText = '0';
+      document.getElementById(`stat-${c}-proj`).innerText = '0';
+    });
+    document.getElementById('topAreaBox').innerHTML = '<p class="text-gray-400 text-sm py-2">暂无数据</p>';
+    document.getElementById('topProjectBox').innerHTML = '<p class="text-gray-400 text-sm py-2">暂无数据</p>';
+    chinaChart.setOption({
+      tooltip:{trigger:"item",formatter:p=>p.name},
+      series:[{type:"map",map:"china",label:{show:true,fontSize:8,color:'#999'}}]
+    });
+    return;
+  }
+
+  // 筛选最新月份数据
+  const latestRows = allData.filter(d=>d.f_period === latestPeriod);
+
+  // 聚合区域数据：不取平均，区域维度行直接用其total，无区域维度行则取项目维度最大值
+  const areaMap = {};
+  latestRows.forEach(row=>{
+    const area = normalizeAreaName(row.f_area);
+    if(!area) return;
+    const calc = calcRow(row);
+    if(!areaMap[area]) areaMap[area] = {areaVal: null, projMax: 0, hasProj: false};
+    if(row.f_dimension === "区域维度") {
+      if(areaMap[area].areaVal === null) {
+        areaMap[area].areaVal = calc.total;
+      }
+    } else {
+      if(calc.total > areaMap[area].projMax) areaMap[area].projMax = calc.total;
+      areaMap[area].hasProj = true;
+    }
+  });
+
+  const areaList = [];
+  const mapData = [];
+  for(let area in areaMap){
+    const d = areaMap[area];
+    const value = d.areaVal !== null ? d.areaVal : d.projMax;
+    const level = getAreaLevel(value);
+    areaList.push({name:area, value, level});
+    mapData.push({name:area, value});
+  }
+
+  // 聚合项目数据（仅项目维度，最新月份）
+  const projList = [];
+  latestRows.forEach(row=>{
+    if(row.f_dimension !== "项目维度") return;
+    if(!row.f_project) return;
+    const calc = calcRow(row);
+    const area = normalizeAreaName(row.f_area);
+    projList.push({name:row.f_project, value:calc.total, level:calc.level, area, origArea: row.f_area});
+  });
+
+  // 统计各等级区域数和项目数
+  const areaCount = {"红色":0,"橙色":0,"黄色":0,"蓝色":0};
+  const projCount = {"红色":0,"橙色":0,"黄色":0,"蓝色":0};
+  areaList.forEach(a=>areaCount[a.level]++);
+  projList.forEach(p=>projCount[p.level]++);
+
+  document.getElementById('stat-red-area').innerText = areaCount["红色"];
+  document.getElementById('stat-orange-area').innerText = areaCount["橙色"];
+  document.getElementById('stat-yellow-area').innerText = areaCount["黄色"];
+  document.getElementById('stat-blue-area').innerText = areaCount["蓝色"];
+  document.getElementById('stat-red-proj').innerText = projCount["红色"];
+  document.getElementById('stat-orange-proj').innerText = projCount["橙色"];
+  document.getElementById('stat-yellow-proj').innerText = projCount["黄色"];
+  document.getElementById('stat-blue-proj').innerText = projCount["蓝色"];
+
+  // TOP5 区域
+  const topAreas = areaList.sort((a,b)=>b.value-a.value).slice(0,5);
+  const topAreaBox = document.getElementById('topAreaBox');
+  topAreaBox.innerHTML = topAreas.length === 0
+    ? '<p class="text-gray-400 text-sm py-2">暂无数据</p>'
+    : topAreas.map((a,i)=>`
+      <div class="top5-row flex items-center justify-between">
+        <div class="flex items-center gap-2">
+          <span class="inline-block w-5 h-5 rounded-full text-white text-xs flex items-center justify-center flex-shrink-0" style="background:${levelColors[a.level]}">${i+1}</span>
+          <span class="text-sm">${a.name}</span>
+        </div>
+        <div class="flex items-center gap-2">
+          <span class="font-bold text-sm text-primary">${a.value}</span>
+          <span class="text-xs px-1.5 py-0.5 rounded text-white" style="background:${levelColors[a.level]}">${a.level}</span>
+        </div>
+      </div>
+    `).join('');
+
+  // TOP5 项目：先按风险等级排序（红>橙>黄>蓝），再按分数降序
+  const levelPriority = {"红色":4, "橙色":3, "黄色":2, "蓝色":1};
+  const topProjects = projList.sort((a,b)=>{
+    const lp = (levelPriority[b.level]||0) - (levelPriority[a.level]||0);
+    if(lp !== 0) return lp;
+    return b.value - a.value;
+  }).slice(0,5);
+  const topProjectBox = document.getElementById('topProjectBox');
+  topProjectBox.innerHTML = topProjects.length === 0
+    ? '<p class="text-gray-400 text-sm py-2">暂无数据</p>'
+    : topProjects.map((p,i)=>`
+      <div class="top5-row flex items-center justify-between">
+        <div class="flex items-center gap-2 min-w-0">
+          <span class="inline-block w-5 h-5 rounded-full text-white text-xs flex items-center justify-center flex-shrink-0" style="background:${levelColors[p.level]}">${i+1}</span>
+          <span class="text-sm truncate" title="${p.origArea} - ${p.name}">${p.origArea} · ${p.name}</span>
+        </div>
+        <div class="flex items-center gap-2 flex-shrink-0">
+          <span class="font-bold text-sm text-primary">${p.value}</span>
+          <span class="text-xs px-1.5 py-0.5 rounded text-white" style="background:${levelColors[p.level]}">${p.level}</span>
+        </div>
+      </div>
+    `).join('');
+
+  // 特殊站点标注
+  const markPoints = [];
+  for(let province in specialAreas){
+    const found = areaList.find(a=>a.name===province);
+    if(found){
+      markPoints.push({
+        name: province + "(" + specialAreas[province] + ")",
+        coord: getAreaCoord(province),
+        value: found.value
+      });
+    }
+  }
+
+  // 地图渲染：严格按公式分段着色 + 显示省份名和风险值
+  const opt = {
+    tooltip: {
+      trigger: "item",
+      backgroundColor: 'rgba(255,255,255,0.95)',
+      borderColor: '#00927E',
+      borderWidth: 1,
+      textStyle: {color: '#333'},
+      formatter: p => {
+        if(p.value == null || p.value === '-' || isNaN(p.value)) return `<b>${p.name}</b><br/>暂无数据`;
+        const level = getAreaLevel(Number(p.value));
+        return `<b>${p.name}</b><br/>风险当量: <b>${p.value}</b><br/>风险等级: <span style="color:${levelColors[level]};font-weight:bold">${level}</span>`;
+      }
+    },
+    visualMap: {
+      type: 'piecewise',
+      pieces: [
+        {gte: 50, label: '红色 (≥50)', color: '#ef4444'},
+        {gte: 40, lt: 50, label: '橙色 (40~50)', color: '#f97316'},
+        {gte: 28, lt: 40, label: '黄色 (28~40)', color: '#eab308'},
+        {lt: 28, label: '蓝色 (<28)', color: '#3b82f6'}
+      ],
+      left: 20,
+      bottom: 20,
+      textStyle: {color: '#333', fontSize: 12},
+      itemWidth: 18,
+      itemHeight: 14,
+      itemGap: 6,
+      backgroundColor: 'rgba(255,255,255,0.8)',
+      borderRadius: 6,
+      padding: 8
+    },
+    series: [{
+      type: "map",
+      map: "china",
+      data: mapData,
+      // 有数据的省份直接显示省份名和风险值
+      label: {
+        show: true,
+        fontSize: 9,
+        color: '#444',
+        formatter: function(params) {
+          const val = params.value;
+          if(val != null && !isNaN(val) && val !== '-') {
+            return params.name + '\n' + val;
+          }
+          return params.name;
+        }
+      },
+      emphasis: {
+        label: {
+          show: true,
+          fontSize: 12,
+          color: '#00927E',
+          fontWeight: 'bold'
+        },
+        itemStyle: {
+          areaColor: null,
+          borderColor: '#00927E',
+          borderWidth: 2
+        }
+      },
+      itemStyle: {
+        borderColor: 'rgba(0,146,126,0.25)',
+        borderWidth: 0.8
+      },
+      markPoint: {
+        data: markPoints,
+        symbol: 'circle',
+        symbolSize: 10,
+        label: {
+          show: true,
+          formatter: p => p.name,
+          position: 'top',
+          color: '#00927E',
+          fontSize: 9,
+          fontWeight: 'bold',
+          backgroundColor: 'rgba(255,255,255,0.85)',
+          padding: [2, 4],
+          borderRadius: 3
+        },
+        itemStyle: {
+          color: '#00927E',
+          borderColor: '#fff',
+          borderWidth: 2,
+          shadowBlur: 4,
+          shadowColor: 'rgba(0,146,126,0.4)'
+        }
+      }
+    }]
+  };
+  chinaChart.setOption(opt);
+
+  // 点击省份跳转到项目明细查询，自动筛选对应区域和月份
+  chinaChart.on('click', function(params) {
+    if(params.name && params.value != null && !isNaN(params.value)) {
+      mapClickProvince = params.name;
+      switchPage('detail');
+    }
+  });
+}
+
+function getAreaCoord(name){
+  const coord = {
+    "广西":[108,24],"贵州":[107,27],"湖北":[112,30],"湖南":[113,28],"四川":[104,30],
+    "西藏":[90,29],"云南":[102,25],"重庆":[106,29],"陕西":[109,34],"江苏":[119,33],
+    "北京":[116,40],"宁夏":[106,38],"广东":[114,22],"江西":[116,28],"浙江":[120,30],
+    "安徽":[117,32],"福建":[119,26],"山东":[117,36],"河南":[113,34],"河北":[115,38],
+    "山西":[112,37],"辽宁":[123,41],"吉林":[126,43],"黑龙江":[126,46],"甘肃":[103,36],
+    "青海":[101,36],"海南":[110,20],"上海":[121,31],"天津":[117,39],"内蒙古":[114,44],
+    "新疆":[85,42]
+  };
+  return coord[name] || [110,30];
+}
+
+// ==================== 页面2：项目明细 ====================
+function renderDetailTable() {
+  let month, area, level;
+  let isMapClick = false;
+  let isStatClick = false;
+
+  if(mapClickProvince) {
+    // 来自地图点击：自动筛选对应省份和最新月份
+    isMapClick = true;
+    const latestP = getLatestPeriod();
+    month = latestP || '';
+    area = '';
+    level = '';
+  } else if(statClickLevel) {
+    // 来自统计卡片点击：自动筛选对应风险等级和最新月份
+    isStatClick = true;
+    const latestP = getLatestPeriod();
+    month = latestP || '';
+    area = '';
+    level = statClickLevel;
+  } else {
+    month = document.getElementById('filterMonth').value;
+    area = document.getElementById('filterArea').value;
+    level = document.getElementById('filterLevel').value;
+  }
+
+  let list = [...allData];
+  if(isMapClick) {
+    list = list.filter(d=>normalizeAreaName(d.f_area) === mapClickProvince);
+    if(month) list = list.filter(d=>d.f_period === month);
+  } else if(isStatClick) {
+    if(month) list = list.filter(d=>d.f_period === month);
+    list = list.filter(d=>calcRow(d).level === level);
+  } else {
+    if(month) list = list.filter(d=>d.f_period === month);
+    if(area) list = list.filter(d=>d.f_area === area);
+    if(level) list = list.filter(d=>calcRow(d).level === level);
+  }
+
+  const tbody = document.getElementById("detailTableBody");
+  tbody.innerHTML = "";
+
+  // 跳转筛选提示
+  if(isMapClick) {
+    const noticeRow = document.createElement("tr");
+    noticeRow.innerHTML = `<td colspan="14" class="border p-2 text-center" style="background:#e6f7f4;color:#00927E;font-weight:600;">
+      📍 来自地图跳转：筛选省份「${mapClickProvince}」${month ? ' | 月份「'+month+'」' : ''} —— 可手动重新查询
+    </td>`;
+    tbody.appendChild(noticeRow);
+  }
+  if(isStatClick) {
+    const levelColors = {"红色":"#ef4444","橙色":"#f97316","黄色":"#eab308","蓝色":"#3b82f6"};
+    const noticeRow = document.createElement("tr");
+    noticeRow.innerHTML = `<td colspan="14" class="border p-2 text-center" style="background:#e6f7f4;color:#00927E;font-weight:600;">
+      📊 来自统计卡片跳转：筛选风险等级「<span style="color:${levelColors[level]};font-weight:700">${level}</span>」${month ? ' | 月份「'+month+'」' : ''} —— 可手动重新查询
+    </td>`;
+    tbody.appendChild(noticeRow);
+  }
+
+  list.forEach(row=>{
+    const c = calcRow(row);
+    const tr = document.createElement("tr");
+    tr.innerHTML = `
+      <td class="border p-2">${row.f_period}</td>
+      <td class="border p-2">${row.f_dimension}</td>
+      <td class="border p-2">${row.f_project}</td>
+      <td class="border p-2">${row.f_area}</td>
+      <td class="border p-2">${row.f_scar}</td>
+      <td class="border p-2">${c.netVal.toFixed(1)}</td>
+      <td class="border p-2">${c.qVal.toFixed(1)}</td>
+      <td class="border p-2">${c.hidVal.toFixed(3)}</td>
+      <td class="border p-2">${c.ehsVal.toFixed(3)}</td>
+      <td class="border p-2">${c.pVal.toFixed(3)}</td>
+      <td class="border p-2">${c.carVal.toFixed(3)}</td>
+      <td class="border p-2">${c.specVal.toFixed(3)}</td>
+      <td class="border p-2 font-bold">${c.total}</td>
+      <td class="border p-2 risk-${c.level.slice(0,2)}">${c.level}</td>
+    `;
+    tbody.appendChild(tr);
+  })
+
+  const months = [...new Set(allData.map(d=>d.f_period))];
+  const areas = [...new Set(allData.map(d=>d.f_area))];
+  const mSel = document.getElementById("filterMonth");
+  const aSel = document.getElementById("filterArea");
+  mSel.innerHTML = '<option value="">全部月份</option>';
+  aSel.innerHTML = '<option value="">全部区域</option>';
+  months.forEach(m=>mSel.innerHTML += `<option value="${m}">${m}</option>`);
+  areas.forEach(a=>aSel.innerHTML += `<option value="${a}">${a}</option>`);
+
+  // 地图跳转时同步月份下拉框
+  if(isMapClick && month) mSel.value = month;
+  // 统计卡片跳转时同步月份和等级下拉框
+  if(isStatClick) {
+    if(month) mSel.value = month;
+    const lSel = document.getElementById("filterLevel");
+    if(lSel && level) lSel.value = level;
+  }
+
+  // 清除跳转标记，后续手动查询正常工作
+  mapClickProvince = null;
+  statClickLevel = null;
+}
+
+// ==================== 页面3：趋势AI分析 ====================
+function renderTrend() {
+  const sel = document.getElementById("trendAreaSel");
+  // 先填充下拉框，确保有选中值
+  const allAreas = [...new Set(allData.map(d=>d.f_area))];
+  if(sel.children.length === 0 && allAreas.length > 0) {
+    allAreas.forEach(a=>sel.innerHTML += `<option value="${a}">${a}</option>`);
+  }
+  let targetArea = sel.value;
+  if(!targetArea && allAreas.length > 0) {
+    targetArea = allAreas[0];
+    sel.value = targetArea;
+  }
+  const filter = allData.filter(d=>d.f_area === targetArea);
+
+  // 按月聚合：区域维度行直接取值，无区域维度行取项目维度最大值（与地图看板一致）
+  const group = {};
+  filter.forEach(r=>{
+    if(!group[r.f_period]) group[r.f_period] = {areaVal: null, projMax: 0, hasProj: false};
+    const calc = calcRow(r);
+    if(r.f_dimension === "区域维度") {
+      if(group[r.f_period].areaVal === null) {
+        group[r.f_period].areaVal = calc.total;
+      }
+    } else {
+      if(calc.total > group[r.f_period].projMax) group[r.f_period].projMax = calc.total;
+      group[r.f_period].hasProj = true;
+    }
+  });
+
+  const months = Object.keys(group).sort();
+  // 每月区域风险当量 = 区域维度行值（有则用），否则取项目维度最大值
+  const monthlyVals = months.map(m=>{
+    const d = group[m];
+    return d.areaVal !== null ? d.areaVal : d.projMax;
+  });
+
+  const dom = document.getElementById("trendChart");
+  if(trendChart) trendChart.dispose();
+  trendChart = echarts.init(dom);
+  trendChart.setOption({
+    color: '#00927E',
+    xAxis:{type:"category",data:months},
+    yAxis:{type:"value",name:"区域风险当量"},
+    series:[{
+      type:"line",
+      data:monthlyVals.map(v=>v.toFixed(1)),
+      smooth:true,
+      lineStyle:{width:3},
+      label:{show:true,position:'top',formatter:'{c}'}
+    }]
+  })
+
+  const box = document.getElementById("aiAnalysisBox");
+  if(months.length ===0){
+    box.innerHTML = `<p class="text-red-500">该区域暂无数据</p>`;
+    return;
+  }
+
+  // 最新月份的区域风险当量及等级判定
+  const lastVal = Number(monthlyVals[monthlyVals.length-1].toFixed(1));
+  const prevVal = monthlyVals.length>=2 ? Number(monthlyVals[monthlyVals.length-2].toFixed(1)) : lastVal;
+  const diff = (lastVal - prevVal).toFixed(1);
+  const trendTxt = Number(diff)>0 ? "上升 ⬆" : Number(diff)<0 ? "下降 ⬇" : "持平 →";
+  const areaLevel = getAreaLevel(lastVal);
+
+  let suggest = "";
+  if(areaLevel === "红色") suggest = "风险红色预警：立即启动专项整治，每周复盘隐患与事故，全员安全培训；";
+  else if(areaLevel === "橙色") suggest = "橙色高风险：增加现场巡检频次，严控特种作业审批，整改重大隐患；";
+  else if(areaLevel === "黄色") suggest = "黄色关注：梳理质量工单超期问题，闭环整改，加强作业人员安全教育；";
+  else suggest = "蓝色低风险：维持现有管控流程，定期抽查作业规范即可。";
+
+  // 各月等级列表
+  const monthlyLevels = months.map((m,i)=>`${m}: ${getAreaLevel(Number(monthlyVals[i].toFixed(1)))}`).join('，');
+
+  box.innerHTML = `
+    <h4 class="font-bold text-base mb-2 text-primary">【AI风险智能分析 - ${targetArea}】</h4>
+    <p>1.最新月份（${months[months.length-1]}）区域风险当量：<span class="font-bold text-lg">${lastVal}</span>，环比变化：${diff > 0 ? '+' : ''}${diff}（趋势：${trendTxt}）</p>
+    <p>2.风险等级判定：<span class="font-bold risk-${areaLevel.slice(0,2)}">${areaLevel}</span>（区域维度：≥50红/≥40橙/≥28黄/其余蓝）</p>
+    <p>3.各月等级：${monthlyLevels}</p>
+    <p>4.管控建议：${suggest}</p>
+    <p class="mt-2 text-gray-500 text-sm">数据周期：${months[0]} ~ ${months[months.length-1]} | 计算方式：区域维度行优先，无则取项目维度最大值（非平均值）</p>
+  `;
+}
+
+// ==================== 页面4：后台管理 ====================
+function renderAdminTable() {
+  const tbody = document.getElementById("adminTableBody");
+  tbody.innerHTML = "";
+  const isAdmin = currentUserRole === 'admin';
+  allData.forEach((row,idx)=>{
+    const c = calcRow(row);
+    const tr = document.createElement("tr");
+    const rowId = row.id || idx;
+    const checkboxTd = isAdmin
+      ? `<td class="border p-2 text-center"><input type="checkbox" class="row-checkbox" data-id="${rowId}"></td>`
+      : `<td class="border p-2 text-center"></td>`;
+    const actions = isAdmin
+      ? `<button onclick="editRow('${rowId}')" class="text-primary hover:underline">编辑</button>
+         <button onclick="delRow('${rowId}')" class="text-red-600 ml-2 hover:underline">删除</button>`
+      : `<span class="text-gray-400 text-xs">仅查看</span>`;
+    tr.innerHTML = `
+      ${checkboxTd}
+      <td class="border p-2">${row.f_period}</td>
+      <td class="border p-2">${row.f_dimension}</td>
+      <td class="border p-2">${row.f_project}</td>
+      <td class="border p-2">${row.f_area}</td>
+      <td class="border p-2">${row.f_scar}</td>
+      <td class="border p-2">${c.netVal.toFixed(1)}</td>
+      <td class="border p-2">${c.qVal.toFixed(1)}</td>
+      <td class="border p-2">${c.hidVal.toFixed(3)}</td>
+      <td class="border p-2">${c.ehsVal.toFixed(3)}</td>
+      <td class="border p-2">${c.pVal.toFixed(3)}</td>
+      <td class="border p-2">${c.carVal.toFixed(3)}</td>
+      <td class="border p-2">${c.specVal.toFixed(3)}</td>
+      <td class="border p-2 font-bold">${c.total}</td>
+      <td class="border p-2 risk-${c.level.slice(0,2)}">${c.level}</td>
+      <td class="border p-2">${actions}</td>
+    `;
+    tbody.appendChild(tr);
+  });
+  updateUIByRole();
+}
+
+function toggleSelectAll(checkbox) {
+  document.querySelectorAll('.row-checkbox').forEach(cb=>cb.checked = checkbox.checked);
+}
+
+async function batchDelete() {
+  if(currentUserRole !== 'admin') return alert("普通用户无批量删除权限");
+  const checked = document.querySelectorAll('.row-checkbox:checked');
+  if(checked.length === 0) return alert("请先勾选要删除的数据行");
+  if(!confirm(`确认删除选中的 ${checked.length} 条数据？此操作不可撤销！`)) return;
+  const ids = Array.from(checked).map(cb=>cb.dataset.id);
+  try {
+    const resp = await fetch(API_BASE + '/api/data/batch', {
+      method: 'DELETE',
+      headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({ ids })
+    });
+    const result = await resp.json();
+    if(result.success) {
+      await initData();
+      renderAllPage();
+      alert(`成功删除 ${result.deletedCount} 条数据`);
+    } else {
+      alert("批量删除失败");
+    }
+  } catch(e) {
+    alert("网络错误：" + e.message);
+  }
+}
+
+function openAddModal() {
+  document.getElementById("modalTitle").innerText = "新增月度风险数据";
+  document.getElementById("editId").value = "";
+  document.querySelectorAll('#addEditModal input').forEach(inp=>inp.value="0");
+  document.getElementById("f_period").value = "";
+  document.getElementById("f_project").value = "";
+  document.getElementById("f_area").value = "";
+  document.getElementById("addEditModal").style.display = "flex";
+}
+function closeAddModal() {
+  document.getElementById("addEditModal").style.display = "none";
+}
+function editRow(id) {
+  if(currentUserRole !== "admin") return alert("普通用户无编辑权限");
+  const row = allData.find(d => d.id === id);
+  if(!row) return alert("数据不存在");
+  document.getElementById("modalTitle").innerText = "编辑已有数据";
+  document.getElementById("editId").value = id;
+  document.getElementById("f_period").value = row.f_period;
+  document.getElementById("f_dimension").value = row.f_dimension;
+  document.getElementById("f_project").value = row.f_project;
+  document.getElementById("f_area").value = row.f_area;
+  document.getElementById("f_scar").value = row.f_scar;
+  document.getElementById("f_q1").value = row.f_q1;
+  document.getElementById("f_q2").value = row.f_q2;
+  document.getElementById("f_q3").value = row.f_q3;
+  document.getElementById("f_q4").value = row.f_q4;
+  document.getElementById("f_net1").value = row.f_net1;
+  document.getElementById("f_net2").value = row.f_net2;
+  document.getElementById("f_ro").value = row.f_ro;
+  document.getElementById("f_rfc").value = row.f_rfc;
+  document.getElementById("f_ehs1").value = row.f_ehs1;
+  document.getElementById("f_ehs2").value = row.f_ehs2;
+  document.getElementById("f_ehs3").value = row.f_ehs3;
+  document.getElementById("f_h1").value = row.f_h1;
+  document.getElementById("f_h2").value = row.f_h2;
+  document.getElementById("f_h3").value = row.f_h3;
+  document.getElementById("f_highwork").value = row.f_highwork;
+  document.getElementById("f_p_total").value = row.f_p_total;
+  document.getElementById("f_p_valid").value = row.f_p_valid;
+  document.getElementById("f_spec_total").value = row.f_spec_total;
+  document.getElementById("f_spec_valid").value = row.f_spec_valid;
+  document.getElementById("f_car1").value = row.f_car1;
+  document.getElementById("f_car2").value = row.f_car2;
+  document.getElementById("f_car3").value = row.f_car3;
+  document.getElementById("f_car_work").value = row.f_car_work;
+  document.getElementById("addEditModal").style.display = "flex";
+}
+async function delRow(id) {
+  if(currentUserRole !== "admin") return alert("普通用户无删除权限");
+  if(!confirm("确认删除该条数据？")) return;
+  try {
+    const resp = await fetch(API_BASE + '/api/data/' + id, { method: 'DELETE' });
+    const result = await resp.json();
+    if(result.success) {
+      await initData();
+      renderAllPage();
+      alert("删除成功");
+    } else {
+      alert("删除失败：" + (result.message || '未知错误'));
+    }
+  } catch(e) {
+    alert("网络错误：" + e.message);
+  }
+}
+async function saveRowData() {
+  const editId = document.getElementById("editId").value;
+  const newRow = {
+    f_period: document.getElementById("f_period").value.trim(),
+    f_dimension: document.getElementById("f_dimension").value,
+    f_project: document.getElementById("f_project").value.trim(),
+    f_area: document.getElementById("f_area").value.trim(),
+    f_scar: Number(document.getElementById("f_scar").value)||0,
+    f_q1: Number(document.getElementById("f_q1").value)||0,
+    f_q2: Number(document.getElementById("f_q2").value)||0,
+    f_q3: Number(document.getElementById("f_q3").value)||0,
+    f_q4: Number(document.getElementById("f_q4").value)||0,
+    f_net1: Number(document.getElementById("f_net1").value)||0,
+    f_net2: Number(document.getElementById("f_net2").value)||0,
+    f_ro: Number(document.getElementById("f_ro").value)||0,
+    f_rfc: Number(document.getElementById("f_rfc").value)||0,
+    f_ehs1: Number(document.getElementById("f_ehs1").value)||0,
+    f_ehs2: Number(document.getElementById("f_ehs2").value)||0,
+    f_ehs3: Number(document.getElementById("f_ehs3").value)||0,
+    f_h1: Number(document.getElementById("f_h1").value)||0,
+    f_h2: Number(document.getElementById("f_h2").value)||0,
+    f_h3: Number(document.getElementById("f_h3").value)||0,
+    f_highwork: Number(document.getElementById("f_highwork").value)||0,
+    f_p_total: Number(document.getElementById("f_p_total").value)||0,
+    f_p_valid: Number(document.getElementById("f_p_valid").value)||0,
+    f_spec_total: Number(document.getElementById("f_spec_total").value)||0,
+    f_spec_valid: Number(document.getElementById("f_spec_valid").value)||0,
+    f_car1: Number(document.getElementById("f_car1").value)||0,
+    f_car2: Number(document.getElementById("f_car2").value)||0,
+    f_car3: Number(document.getElementById("f_car3").value)||0,
+    f_car_work: Number(document.getElementById("f_car_work").value)||0,
+  }
+  if(!newRow.f_period || !newRow.f_area){
+    return alert("统计周期、所属区域不能为空");
+  }
+  try {
+    if(editId === ""){
+      // 新增
+      const resp = await fetch(API_BASE + '/api/data', {
+        method: 'POST',
+        headers: {'Content-Type':'application/json'},
+        body: JSON.stringify(newRow)
+      });
+      const result = await resp.json();
+      if(!result.success) return alert("保存失败：" + (result.message||''));
+    } else {
+      // 编辑
+      if(currentUserRole !== 'admin') return alert("普通用户不可修改已有数据");
+      const resp = await fetch(API_BASE + '/api/data/' + editId, {
+        method: 'PUT',
+        headers: {'Content-Type':'application/json'},
+        body: JSON.stringify(newRow)
+      });
+      const result = await resp.json();
+      if(!result.success) return alert("保存失败：" + (result.message||''));
+    }
+    await initData();
+    closeAddModal();
+    renderAllPage();
+    alert("保存成功，已自动计算风险折算值与等级");
+  } catch(e) {
+    alert("网络错误：" + e.message);
+  }
+}
+
+// ==================== Excel批量导入 ====================
+function openImportModal() {
+  document.getElementById("excelFileInput").value = "";
+  document.getElementById("importResult").innerText = "";
+  document.getElementById("importModal").style.display = "flex";
+}
+function closeImportModal() {
+  document.getElementById("importModal").style.display = "none";
+}
+function downloadTemplate() {
+  const headers = [
+    "统计周期","维度","项目名称","所属区域","SCAR单","质量事件数","质量驳回工单1","质量驳回工单2","超期问题工单",
+    "网络事故数","网络事件数","RO单数量","RFC数量","重伤/死亡","轻伤","违规作业","重大/较大隐患","一般隐患","轻微/潜在隐患",
+    "高危作业数","项目作业人员总数","有效资源人数","特种作业人员总数","特种资质有效人数",
+    "交通安全事件数","车辆疲劳驾驶次数","车辆超速次数","车辆出勤次数"
+  ];
+  const ws = XLSX.utils.aoa_to_sheet([headers]);
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, "风险数据模板");
+  XLSX.writeFile(wb, "安全生产风险导入模板.xlsx");
+}
+function parseExcel() {
+  const file = document.getElementById("excelFileInput").files[0];
+  if(!file) return alert("请选择Excel文件");
+  const reader = new FileReader();
+  reader.onload = async e=>{
+    const buf = e.target.result;
+    const wb = XLSX.read(buf, {type:"binary"});
+    const sheet = wb.Sheets[wb.SheetNames[0]];
+    const json = XLSX.utils.sheet_to_json(sheet, {header:1});
+    const rows = json.slice(1);
+    const rowObjs = [];
+    let fail = 0, errMsg = "";
+    rows.forEach((r,idx)=>{
+      const line = idx+2;
+      const period = String(r[0]||"").trim();
+      const dim = r[1]||"";
+      const proj = String(r[2]||"").trim();
+      const area = String(r[3]||"").trim();
+      if(!period || !area){ fail++; errMsg += `第${line}行：周期/区域为空\n`; return; }
+      rowObjs.push({
+        f_period:period,f_dimension:dim,f_project:proj,f_area:area,
+        f_scar:Number(r[4])||0,f_q1:Number(r[5])||0,f_q2:Number(r[6])||0,f_q3:Number(r[7])||0,f_q4:Number(r[8])||0,
+        f_net1:Number(r[9])||0,f_net2:Number(r[10])||0,f_ro:Number(r[11])||0,f_rfc:Number(r[12])||0,
+        f_ehs1:Number(r[13])||0,f_ehs2:Number(r[14])||0,f_ehs3:Number(r[15])||0,
+        f_h1:Number(r[16])||0,f_h2:Number(r[17])||0,f_h3:Number(r[18])||0,
+        f_highwork:Number(r[19])||0,f_p_total:Number(r[20])||0,f_p_valid:Number(r[21])||0,
+        f_spec_total:Number(r[22])||0,f_spec_valid:Number(r[23])||0,
+        f_car1:Number(r[24])||0,f_car2:Number(r[25])||0,f_car3:Number(r[26])||0,f_car_work:Number(r[27])||0
+      });
+    });
+    if(rowObjs.length === 0) {
+      document.getElementById("importResult").innerHTML = `<p class="text-red-500">没有有效数据可导入</p>`;
+      return;
+    }
+    try {
+      const resp = await fetch(API_BASE + '/api/data/batch', {
+        method: 'POST',
+        headers: {'Content-Type':'application/json'},
+        body: JSON.stringify({ rows: rowObjs })
+      });
+      const result = await resp.json();
+      const success = result.successCount || 0;
+      const failCount = (fail + (result.failCount||0));
+      const allErr = errMsg + (result.errors||[]).join('\n');
+      await initData();
+      document.getElementById("importResult").innerHTML = `
+        <p class="text-primary">导入完成！成功${success}条，失败${failCount}条</p>
+        <p class="text-red-500 whitespace-pre">${allErr}</p>
+      `;
+      renderAllPage();
+    } catch(err) {
+      document.getElementById("importResult").innerHTML = `<p class="text-red-500">导入失败：${err.message}</p>`;
+    }
+  }
+  reader.readAsBinaryString(file);
+}
+
+function renderAllPage() {
+  renderMap();
+  renderDetailTable();
+  renderAdminTable();
+}
+</script>
+</body>
+</html>
